@@ -104,8 +104,35 @@ describe("register", function () {
     }
   });
 });
+/************************************** apply */
+
+describe("apply", function(){
+  test("works", async function() {
+    const application = await User.apply({username: 'u2', job_id: 1})
+    expect(application).toEqual({ applied: {job_id: 1} })
+  })
+  test("NotFoundError if theres no matching user", async function() {
+   try {
+     await User.apply({username: 'u10', job_id: 1})
+     fail()
+  }catch(err) {
+    expect(err instanceof NotFoundError).toBeTruthy()
+  }
+  })
+  test("NotFoundError if theres no matching job", async function() {
+   try {
+     await User.apply({username: 'u2', job_id: 15})
+     fail()
+  }catch(err) {
+    expect(err instanceof NotFoundError).toBeTruthy()
+  }
+  })
+})
+
+
 
 /************************************** findAll */
+
 
 describe("findAll", function () {
   test("works", async function () {
@@ -132,7 +159,18 @@ describe("findAll", function () {
 /************************************** get */
 
 describe("get", function () {
-  test("works", async function () {
+  test("works with no job applications", async function () {
+    let user = await User.get("u2");
+    expect(user).toEqual({
+      username: "u2",
+      firstName: "U2F",
+      lastName: "U2L",
+      email: "u2@email.com",
+      isAdmin: false,
+      jobs: ['No applications']
+    });
+  });
+  test("works with job applications", async function () {
     let user = await User.get("u1");
     expect(user).toEqual({
       username: "u1",
@@ -140,7 +178,7 @@ describe("get", function () {
       lastName: "U1L",
       email: "u1@email.com",
       isAdmin: false,
-      jobs: ['No applications']
+      jobs: [1]
     });
   });
 

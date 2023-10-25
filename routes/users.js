@@ -49,6 +49,15 @@ router.post(
   }
 );
 
+/** POST /username/jobs/id => {applied: {job_id: some id}}
+ *
+ * Creates appliction for a user to a job
+ *
+ * This returns {applied: {job_id: some id}}
+ *
+ * Authorization required: login. Admin/currUser
+ **/
+
 router.post(
   "/:username/jobs/:id",
   ensureLoggedInAndIsAdminOrIsUser,

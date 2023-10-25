@@ -5,7 +5,7 @@ const request = require("supertest");
 const db = require("../db.js");
 const app = require("../app");
 const User = require("../models/user");
-
+const Job = require("../models/job.js");
 const {
   commonBeforeAll,
   commonBeforeEach,
@@ -125,6 +125,98 @@ describe("POST /users", function () {
   });
 });
 
+/**POST ********************* /users/:username/jobs/:id */
+
+describe("POST /users/:username/jobs/:id", function () {
+  test("works for admin users", async function () {
+    const newJob = await Job.create({
+      title: "wally",
+      salary: 50000,
+      equity: "0",
+      companyHandle: "c1",
+    });
+    const resp = await request(app)
+      .post(`/users/${'u1'}/jobs/${newJob.id}`)
+      .set("authorization", `Bearer ${u2Token}`);
+    expect(resp.statusCode).toEqual(201);
+    expect(resp.body).toEqual(
+      { applied: {job_id: newJob.id} }
+    );
+  });
+
+  test("if user, works for non admin user", async function () {
+    const newJob = await Job.create({
+      title: "wally",
+      salary: 50000,
+      equity: "0",
+      companyHandle: "c1",
+    });
+    const resp = await request(app)
+      .post(`/users/${'u1'}/jobs/${newJob.id}`)
+      .set("authorization", `Bearer ${u1Token}`);
+    expect(resp.statusCode).toEqual(201);
+    expect(resp.body).toEqual(
+      { applied: {job_id: newJob.id} }
+    );
+  });
+  test("if not user, unauth for non admin user", async function () {
+    const newJob = await Job.create({
+      title: "wally",
+      salary: 50000,
+      equity: "0",
+      companyHandle: "c1",
+    });
+    const resp = await request(app)
+      .post(`/users/${'u2'}/jobs/${newJob.id}`)
+      .set("authorization", `Bearer ${u1Token}`);
+    expect(resp.statusCode).toEqual(401);
+  });
+
+  test("unauth for anon", async function () {
+    const newJob = await Job.create({
+      title: "wally",
+      salary: 50000,
+      equity: "0",
+      companyHandle: "c1",
+    });
+    const resp = await request(app)
+      .post(`/users/${'u2'}/jobs/${newJob.id}`)
+    expect(resp.statusCode).toEqual(401);
+  });
+
+  test("server error if invalid data", async function () {
+    const newJob = await Job.create({
+      title: "wally",
+      salary: 50000,
+      equity: "0",
+      companyHandle: "c1",
+    });
+    const resp = await request(app)
+      .post(`/users/${'u1'}/jobs/${'invalid job id'}`)
+      .set("authorization", `Bearer ${u1Token}`);
+    expect(resp.statusCode).toEqual(500);
+  });
+
+  test("notFoundError if job not found", async function () {
+    const resp = await request(app)
+      .post(`/users/${'u1'}/jobs/${10000}`)
+      .set("authorization", `Bearer ${u1Token}`);
+    expect(resp.statusCode).toEqual(404);
+  });
+  test("notFoundError if user found", async function () {
+    const newJob = await Job.create({
+      title: "wally",
+      salary: 50000,
+      equity: "0",
+      companyHandle: "c1",
+    });
+    const resp = await request(app)
+      .post(`/users/${'nope'}/jobs/${newJob.id}`)
+      .set("authorization", `Bearer ${u2Token}`);
+    expect(resp.statusCode).toEqual(404);
+  });
+});
+
 /************************************** GET /users */
 
 describe("GET /users", function () {
@@ -196,6 +288,30 @@ describe("GET /users/:username", function () {
         lastName: "U1L",
         email: "user1@user.com",
         isAdmin: false,
+        jobs: ["No applications"]
+      },
+    });
+  });
+  test("works for nonadmin users with matching username and job applications", async function () {
+    const newJob = await Job.create({
+      title: "wally",
+      salary: 50000,
+      equity: "0",
+      companyHandle: "c1",
+    });
+    await db.query(`INSERT INTO applications (username, job_id)
+    VALUES ('u1', ${newJob.id})`)
+    const resp = await request(app)
+      .get(`/users/u1`)
+      .set("authorization", `Bearer ${u1Token}`);
+    expect(resp.body).toEqual({
+      user: {
+        username: "u1",
+        firstName: "U1F",
+        lastName: "U1L",
+        email: "user1@user.com",
+        isAdmin: false,
+        jobs: [newJob.id]
       },
     });
   });
@@ -210,6 +326,7 @@ describe("GET /users/:username", function () {
         lastName: "U2L",
         email: "user2@user.com",
         isAdmin: false,
+        jobs: ["No applications"]
       },
     });
   });
