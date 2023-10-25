@@ -11,6 +11,9 @@ const User = require("../models/user");
 const { createToken } = require("../helpers/tokens");
 const userNewSchema = require("../schemas/userNew.json");
 const userUpdateSchema = require("../schemas/userUpdate.json");
+const jobApplicationSchema = require("../schemas/jobApplicationNew.json");
+
+
 
 const router = express.Router();
 
@@ -40,6 +43,28 @@ router.post(
       const user = await User.register(req.body);
       const token = createToken(user);
       return res.status(201).json({ user, token });
+    } catch (err) {
+      return next(err);
+    }
+  }
+);
+
+router.post(
+  "/:username/jobs/:id",
+  ensureLoggedInAndIsAdminOrIsUser,
+  async function (req, res, next) {
+    try {
+      const username = req.params.username
+      const job_id = req.params.id
+      
+      const validator = jsonschema.validate({username, job_id}, jobApplicationSchema);
+      if (!validator.valid) {
+        const errs = validator.errors.map((e) => e.stack);
+        throw new BadRequestError(errs);
+      }
+     
+      const application = await User.apply({username, job_id});
+      return res.status(201).json( application );
     } catch (err) {
       return next(err);
     }

@@ -4,6 +4,7 @@ const request = require("supertest");
 
 const db = require("../db");
 const app = require("../app");
+const Job = require("../models/job.js");
 
 const {
   commonBeforeAll,
@@ -25,7 +26,7 @@ describe("POST /jobs", function () {
   const newJob = {
     title: "walmart",
     salary: 75000,
-    equity: "1",
+    equity: 1,
     companyHandle: "c1",
   };
 
@@ -33,240 +34,248 @@ describe("POST /jobs", function () {
     const resp = await request(app)
       .post("/jobs")
       .send(newJob)
-      .set("authorization", `Bearer ${u1Token}`);
+      .set("authorization", `Bearer ${u2Token}`);
     expect(resp.statusCode).toEqual(201);
     expect(resp.body).toEqual({
       job: {
         id: expect.any(Number),
-        ...newCompany,
+        title: "walmart",
+        salary: 75000,
+        equity: "1",
+        companyHandle: "c1",
       },
+    });
+  })
+    test("bad request with missing data", async function () {
+      const resp = await request(app)
+        .post("/jobs")
+        .send({
+          title: "walmart",
+          salary: 75000,
+        })
+        .set("authorization", `Bearer ${u2Token}`);
+      expect(resp.statusCode).toEqual(400);
+    });
+
+    test("bad request with invalid data", async function () {
+      const resp = await request(app)
+        .post("/jobs")
+        .send({
+          title: "walmart",
+          salary: 75000,
+          equity: "Not an integer",
+          companyHandle: "c1",
+        })
+        .set("authorization", `Bearer ${u2Token}`);
+      expect(resp.statusCode).toEqual(400);
     });
   });
 
-  //   test("bad request with missing data", async function () {
-  //     const resp = await request(app)
-  //       .post("/companies")
-  //       .send({
-  //         handle: "new",
-  //         numEmployees: 10,
-  //       })
-  //       .set("authorization", `Bearer ${u2Token}`);
-  //     expect(resp.statusCode).toEqual(400);
-  //   });
-
-  //   test("bad request with invalid data", async function () {
-  //     const resp = await request(app)
-  //       .post("/companies")
-  //       .send({
-  //         ...newCompany,
-  //         logoUrl: "not-a-url",
-  //       })
-  //       .set("authorization", `Bearer ${u2Token}`);
-  //     expect(resp.statusCode).toEqual(400);
-  //   });
-});
-
 /************************************** GET /companies */
 
-// describe("GET /companies", function () {
-//   test("ok for anon", async function () {
-//     const resp = await request(app).get("/companies");
-//     expect(resp.body).toEqual({
-//       companies: [
-//         {
-//           handle: "c1",
-//           name: "C1",
-//           description: "Desc1",
-//           numEmployees: 1,
-//           logoUrl: "http://c1.img",
-//         },
-//         {
-//           handle: "c2",
-//           name: "C2",
-//           description: "Desc2",
-//           numEmployees: 2,
-//           logoUrl: "http://c2.img",
-//         },
-//         {
-//           handle: "c3",
-//           name: "C3",
-//           description: "Desc3",
-//           numEmployees: 3,
-//           logoUrl: "http://c3.img",
-//         },
-//       ],
-//     });
-//   });
+describe("GET /jobs", function () {
+  test("ok for anon", async function () {
+    const resp = await request(app).get("/jobs");
+    expect(resp.body).toEqual({
+      job: [
+        {
+          companyHandle: "c2",
+          equity: "1",
+          id: expect.any(Number),
+          salary: 100000,
+          title: "target",
+        },
+        {
+          companyHandle: "c1",
+          equity: "0",
+          id: expect.any(Number),
+          salary: 50000,
+          title: "walmart",
+        },
+      ],
+    });
+  });
 
-//   test("fails: test next() handler", async function () {
-//     // there's no normal failure event which will cause this route to fail ---
-//     // thus making it hard to test that the error-handler works with it. This
-//     // should cause an error, all right :)
-//     await db.query("DROP TABLE companies CASCADE");
-//     const resp = await request(app)
-//       .get("/companies")
-//       .set("authorization", `Bearer ${u1Token}`);
-//     expect(resp.statusCode).toEqual(500);
-//   });
-// });
+  test("fails: test next() handler", async function () {
+    // there's no normal failure event which will cause this route to fail ---
+    // thus making it hard to test that the error-handler works with it. This
+    // should cause an error, all right :)
+    await db.query("DROP TABLE jobs CASCADE");
+    const resp = await request(app)
+      .get("/jobs")
+      .set("authorization", `Bearer ${u1Token}`);
+    expect(resp.statusCode).toEqual(500);
+  });
+});
 
 // /************************************** GET /companies/filter */
-// describe("GET /companies/filter", function () {
-//   test("works with all current filters", async function () {
-//     const resp = await request(app).get(`/companies/filter`).query({
-//       minEmployees: 1,
-//       maxEmployees: 2,
-//       companyName: "2",
-//     });
-//     expect(resp.statusCode).toEqual(200);
-//     expect(resp.body).toEqual({
-//       filteredCompanies: [
-//         {
-//           description: "Desc2",
-//           handle: "c2",
-//           logoUrl: "http://c2.img",
-//           name: "C2",
-//           numEmployees: 2,
-//         },
-//       ],
-//     });
-//   });
-//   test("BadRequestError if inccorect filter is provided", async function () {
-//     const resp = await request(app).get(`/companies/filter`).query({
-//       minEmployees: 1,
-//       maxEmployees: 2,
-//       companynam: "2",
-//     });
-//     expect(resp.statusCode).toEqual(400);
-//     expect(resp.body).toEqual({
-//       error: { message: "companynam is an Invalid Filter type", status: 400 },
-//     });
-//   });
-// });
+describe("GET /jobs/filter", function () {
+  test("works with all current filters", async function () {
+    const resp = await request(app).get(`/jobs/filter`).query({
+    minSalary: 50000,
+    hasEquity: "false",
+    jobTitle: 'wal'
+    });
+    expect(resp.statusCode).toEqual(200);
+    expect(resp.body).toEqual({
+      filteredJobs: [
+        {
+          companyHandle: "c1",
+          equity: "0",
+          id: expect.any(Number),
+          salary: 50000,
+          title: "walmart",
+        },
+      ],
+    });
+  });
+  test("BadRequestError if inccorect filter is provided", async function () {
+    const resp = await request(app).get(`/companies/filter`).query({
+      minSoolory: 5000
+    });
+    expect(resp.statusCode).toEqual(400);
+    expect(resp.body).toEqual({
+      error: { message: "minSoolory is an Invalid Filter type", status: 400 },
+    });
+  });
+});
 
 // /************************************** GET /companies/:handle */
 
-// describe("GET /companies/:handle", function () {
-//   test("works for anon", async function () {
-//     const resp = await request(app).get(`/companies/c1`);
-//     expect(resp.body).toEqual({
-//       company: {
-//         handle: "c1",
-//         name: "C1",
-//         description: "Desc1",
-//         numEmployees: 1,
-//         logoUrl: "http://c1.img",
-//         jobs: [
-//           {
-//             id: expect.any(Number),
-//             companyHandle: "c1",
-//             equity: "0",
-//             salary: 50000,
-//             title: "walmart",
-//           },
-//         ],
-//       },
-//     });
-//   });
+describe("GET /jobs/:id", function () {
+  
+  test("works for anon", async function () {
+    const newJob = await Job.create({
+      title: "wally",
+      salary: 50000,
+      equity: "0",
+      companyHandle: "c1",
+    });
+    const resp = await request(app).get(`/jobs/${newJob.id}`);
+    expect(resp.body).toEqual({job: {id: expect.any(Number), ...newJob}});
+  });
 
-//   test("works for anon: company w/o jobs", async function () {
-//     const resp = await request(app).get(`/companies/c3`);
-//     expect(resp.body).toEqual({
-//       company: {
-//         handle: "c3",
-//         name: "C3",
-//         description: "Desc3",
-//         numEmployees: 3,
-//         logoUrl: "http://c3.img",
-//         jobs: [{}],
-//       },
-//     });
-//   });
 
-//   test("not found for no such company", async function () {
-//     const resp = await request(app).get(`/companies/nope`);
-//     expect(resp.statusCode).toEqual(404);
-//   });
-// });
+  test("not found for no such job", async function () {
+    const resp = await request(app).get(`/job/1000`);
+    expect(resp.statusCode).toEqual(404);
+  });
+});
 
 // /************************************** PATCH /companies/:handle */
 
-// describe("PATCH /companies/:handle", function () {
-//   test("works for users", async function () {
-//     const resp = await request(app)
-//       .patch(`/companies/c1`)
-//       .send({
-//         name: "C1-new",
-//       })
-//       .set("authorization", `Bearer ${u2Token}`);
-//     expect(resp.body).toEqual({
-//       company: {
-//         handle: "c1",
-//         name: "C1-new",
-//         description: "Desc1",
-//         numEmployees: 1,
-//         logoUrl: "http://c1.img",
-//       },
-//     });
-//   });
+describe("PATCH /companies/:handle", function () {
+  
+  test("works for users", async function () {
+    const newJob = await Job.create({
+      title: "wally",
+      salary: 50000,
+      equity: "0",
+      companyHandle: "c1",
+    });
+    const resp = await request(app)
+      .patch(`/jobs/${newJob.id}`)
+      .send({
+        title: "wally world",
+      })
+      .set("authorization", `Bearer ${u2Token}`);
+    expect(resp.body).toEqual({
+      job: {
+        id: newJob.id,
+      title: "wally world",
+      salary: 50000,
+      equity: "0",
+      companyHandle: "c1",
+    }});
+  });
 
-//   test("unauth for anon", async function () {
-//     const resp = await request(app).patch(`/companies/c1`).send({
-//       name: "C1-new",
-//     });
-//     expect(resp.statusCode).toEqual(401);
-//   });
+  test("unauth for anon", async function () {
+    const newJob = await Job.create({
+      title: "wally",
+      salary: 50000,
+      equity: "0",
+      companyHandle: "c1",
+    });
+    const resp = await request(app).patch(`/jobs/${newJob.id}`).send({
+      title: "wally world",
+    });
+    expect(resp.statusCode).toEqual(401);
+  });
 
-//   test("not found on no such company", async function () {
-//     const resp = await request(app)
-//       .patch(`/companies/nope`)
-//       .send({
-//         name: "new nope",
-//       })
-//       .set("authorization", `Bearer ${u2Token}`);
-//     expect(resp.statusCode).toEqual(404);
-//   });
+  test("not found on no such job", async function () {
+    const resp = await request(app)
+      .patch(`/jobs/10000`)
+      .send({
+        title: "wrong",
+      })
+      .set("authorization", `Bearer ${u2Token}`);
+    expect(resp.statusCode).toEqual(404);
+  });
 
-//   test("bad request on handle change attempt", async function () {
-//     const resp = await request(app)
-//       .patch(`/companies/c1`)
-//       .send({
-//         handle: "c1-new",
-//       })
-//       .set("authorization", `Bearer ${u2Token}`);
-//     expect(resp.statusCode).toEqual(400);
-//   });
+  test("bad request on id change attempt", async function () {
+    const newJob = await Job.create({
+      title: "wally",
+      salary: 50000,
+      equity: "0",
+      companyHandle: "c1",
+    });
+    const resp = await request(app)
+      .patch(`/jobs/${newJob.id}`)
+      .send({
+        id: 1000,
+      })
+      .set("authorization", `Bearer ${u2Token}`);
+    expect(resp.statusCode).toEqual(400);
+  });
 
-//   test("bad request on invalid data", async function () {
-//     const resp = await request(app)
-//       .patch(`/companies/c1`)
-//       .send({
-//         logoUrl: "not-a-url",
-//       })
-//       .set("authorization", `Bearer ${u2Token}`);
-//     expect(resp.statusCode).toEqual(400);
-//   });
-// });
+  test("bad request on invalid data", async function () {
+    const newJob = await Job.create({
+      title: "wally",
+      salary: 50000,
+      equity: "0",
+      companyHandle: "c1",
+    });
+    const resp = await request(app)
+      .patch(`/jobs/${newJob.id}`)
+      .send({
+        equity: "not-equity",
+      })
+      .set("authorization", `Bearer ${u2Token}`);
+    expect(resp.statusCode).toEqual(400);
+  });
+});
 
 // /************************************** DELETE /companies/:handle */
 
-// describe("DELETE /companies/:handle", function () {
-//   test("works for users", async function () {
-//     const resp = await request(app)
-//       .delete(`/companies/c1`)
-//       .set("authorization", `Bearer ${u2Token}`);
-//     expect(resp.body).toEqual({ deleted: "c1" });
-//   });
+describe("DELETE /jobs/:id", function () {
+  test("works for users", async function () {
+    const newJob = await Job.create({
+      title: "wally",
+      salary: 50000,
+      equity: "0",
+      companyHandle: "c1",
+    });
+    const resp = await request(app)
+      .delete(`/jobs/${newJob.id}`)
+      .set("authorization", `Bearer ${u2Token}`);
+    expect(resp.body).toEqual({ deleted: String(newJob.id) });
+  });
 
-//   test("unauth for anon", async function () {
-//     const resp = await request(app).delete(`/companies/c1`);
-//     expect(resp.statusCode).toEqual(401);
-//   });
+  test("unauth for anon", async function () {
+    const newJob = await Job.create({
+      title: "wally",
+      salary: 50000,
+      equity: "0",
+      companyHandle: "c1",
+    });
+    const resp = await request(app).delete(`/jobs/${newJob.id}`);
+    expect(resp.statusCode).toEqual(401);
+  });
 
-//   test("not found for no such company", async function () {
-//     const resp = await request(app)
-//       .delete(`/companies/nope`)
-//       .set("authorization", `Bearer ${u2Token}`);
-//     expect(resp.statusCode).toEqual(404);
-//   });
-// });
+  test("not found for no such job", async function () {
+    const resp = await request(app)
+      .delete(`/jobs/10000`)
+      .set("authorization", `Bearer ${u2Token}`);
+    expect(resp.statusCode).toEqual(404);
+  });
+});
